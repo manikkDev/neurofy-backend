@@ -11,13 +11,13 @@ export interface TokenPayload {
 export class TokenService {
   static generateAccessToken(payload: TokenPayload): string {
     return jwt.sign(payload, env.JWT_ACCESS_SECRET, {
-      expiresIn: env.JWT_ACCESS_EXPIRY as jwt.SignOptions["expiresIn"],
+      expiresIn: env.JWT_ACCESS_EXPIRY as any,
     });
   }
 
   static generateRefreshToken(payload: TokenPayload): string {
     return jwt.sign(payload, env.JWT_REFRESH_SECRET, {
-      expiresIn: env.JWT_REFRESH_EXPIRY as jwt.SignOptions["expiresIn"],
+      expiresIn: env.JWT_REFRESH_EXPIRY as any,
     });
   }
 
