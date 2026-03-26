@@ -87,6 +87,14 @@ function openPort() {
         err.message
       );
       serialDebugStore.markDisconnected();
+
+      // Graceful degraded mode on cloud servers (Render)
+      if (env.NODE_ENV === "production" && (err.message.includes("No such file") || err.message.includes("ENOENT"))) {
+        console.log("[Serial] Hardware port disconnected. Cloud environment detected—disabling auto-reconnect.");
+        shuttingDown = true;
+        return;
+      }
+
       scheduleReconnect();
       return;
     }
