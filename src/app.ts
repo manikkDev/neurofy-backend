@@ -89,55 +89,55 @@ app.get("/", (req, res) => {
           <div class="card">
             <h2>🔐 Authentication</h2>
             <ul class="endpoint-list">
-              <li><span class="method post">POST</span><span class="path">/api/auth/signup</span><span class="desc">Register a new patient or doctor</span></li>
-              <li><span class="method post">POST</span><span class="path">/api/auth/login</span><span class="desc">Authenticate user and get tokens</span></li>
-              <li><span class="method get">GET</span><a href="/api/auth/me" class="path">/api/auth/me</a><span class="desc">Get current authed user profile</span></li>
-              <li><span class="method post">POST</span><span class="path">/api/auth/refresh</span><span class="desc">Refresh access token</span></li>
+              <li><span class="method post">POST</span><a href="/api/auth/signup" target="_blank" class="path">/api/auth/signup</a><span class="desc">Register a new patient or doctor</span></li>
+              <li><span class="method post">POST</span><a href="/api/auth/login" target="_blank" class="path">/api/auth/login</a><span class="desc">Authenticate user and get tokens</span></li>
+              <li><span class="method get">GET</span><a href="/api/auth/me" target="_blank" class="path">/api/auth/me</a><span class="desc">Get current authed user profile</span></li>
+              <li><span class="method post">POST</span><a href="/api/auth/refresh" target="_blank" class="path">/api/auth/refresh</a><span class="desc">Refresh access token</span></li>
             </ul>
           </div>
 
           <div class="card">
             <h2>👨‍⚕️ Core Users</h2>
             <ul class="endpoint-list">
-              <li><span class="method get">GET</span><span class="path">/api/patients</span><span class="desc">List patients (doctors only)</span></li>
-              <li><span class="method get">GET</span><span class="path">/api/patients/:id</span><span class="desc">Get rigorous patient details</span></li>
-              <li><span class="method get">GET</span><span class="path">/api/doctors</span><span class="desc">List available doctors for directory</span></li>
+              <li><span class="method get">GET</span><a href="/api/patients" target="_blank" class="path">/api/patients</a><span class="desc">List patients (doctors only)</span></li>
+              <li><span class="method get">GET</span><a href="/api/patients/:id" target="_blank" class="path">/api/patients/:id</a><span class="desc">Get rigorous patient details</span></li>
+              <li><span class="method get">GET</span><a href="/api/doctors" target="_blank" class="path">/api/doctors</a><span class="desc">List available doctors for directory</span></li>
             </ul>
           </div>
 
           <div class="card">
             <h2>📅 Appointments</h2>
             <ul class="endpoint-list">
-              <li><span class="method post">POST</span><span class="path">/api/appointments</span><span class="desc">Patient requests a slot with a doctor</span></li>
-              <li><span class="method get">GET</span><span class="path">/api/appointments/doctor/pending</span><span class="desc">Doctor views pending incoming requests</span></li>
-              <li><span class="method patch">PATCH</span><span class="path">/api/appointments/:id/accept</span><span class="desc">Doctor accepts a request slot</span></li>
-              <li><span class="method patch">PATCH</span><span class="path">/api/appointments/:id/reschedule</span><span class="desc">Doctor proposes new slot & note</span></li>
+              <li><span class="method post">POST</span><a href="/api/appointments" target="_blank" class="path">/api/appointments</a><span class="desc">Patient requests a slot with a doctor</span></li>
+              <li><span class="method get">GET</span><a href="/api/appointments/doctor/pending" target="_blank" class="path">/api/appointments/doctor/pending</a><span class="desc">Doctor views pending incoming requests</span></li>
+              <li><span class="method patch">PATCH</span><a href="/api/appointments/:id/accept" target="_blank" class="path">/api/appointments/:id/accept</a><span class="desc">Doctor accepts a request slot</span></li>
+              <li><span class="method patch">PATCH</span><a href="/api/appointments/:id/reschedule" target="_blank" class="path">/api/appointments/:id/reschedule</a><span class="desc">Doctor proposes new slot & note</span></li>
             </ul>
           </div>
 
           <div class="card">
             <h2>📄 Clinical Reports</h2>
             <ul class="endpoint-list">
-              <li><span class="method post">POST</span><span class="path">/api/reports</span><span class="desc">Doctor generates/finishes a report</span></li>
-              <li><span class="method get">GET</span><span class="path">/api/reports</span><span class="desc">List reports scoped to auth'd role</span></li>
-              <li><span class="method get">GET</span><span class="path">/api/reports/:id/download</span><span class="desc">Streams medical data as TXT/PDF</span></li>
+              <li><span class="method post">POST</span><a href="/api/reports" target="_blank" class="path">/api/reports</a><span class="desc">Doctor generates/finishes a report</span></li>
+              <li><span class="method get">GET</span><a href="/api/reports" target="_blank" class="path">/api/reports</a><span class="desc">List reports scoped to auth'd role</span></li>
+              <li><span class="method get">GET</span><a href="/api/reports/:id/download" target="_blank" class="path">/api/reports/:id/download</a><span class="desc">Streams medical data as TXT/PDF</span></li>
             </ul>
           </div>
 
           <div class="card">
             <h2>🔔 Notifications</h2>
             <ul class="endpoint-list">
-              <li><span class="method get">GET</span><span class="path">/api/notifications/unread</span><span class="desc">Poll for unread notification count</span></li>
-              <li><span class="method patch">PATCH</span><span class="path">/api/notifications/mark-all-read</span><span class="desc">Clear all active badges</span></li>
-              <li><span class="method delete">DELETE</span><span class="path">/api/notifications/:id</span><span class="desc">Hard-delete a specific notification</span></li>
+              <li><span class="method get">GET</span><a href="/api/notifications/unread" target="_blank" class="path">/api/notifications/unread</a><span class="desc">Poll for unread notification count</span></li>
+              <li><span class="method patch">PATCH</span><a href="/api/notifications/mark-all-read" target="_blank" class="path">/api/notifications/mark-all-read</a><span class="desc">Clear all active badges</span></li>
+              <li><span class="method delete">DELETE</span><a href="/api/notifications/:id" target="_blank" class="path">/api/notifications/:id</a><span class="desc">Hard-delete a specific notification</span></li>
             </ul>
           </div>
 
           <div class="card">
             <h2>⚡ Hardware & System</h2>
             <ul class="endpoint-list">
-              <li><span class="method get">GET</span><a href="/api/health" class="path">/api/health</a><span class="desc">Server alive ping (no-auth)</span></li>
-              <li><span class="method get">GET</span><a href="/api/debug/serial" class="path">/api/debug/serial</a><span class="desc">Live telemetry COM port state</span></li>
+              <li><span class="method get">GET</span><a href="/api/health" target="_blank" class="path">/api/health</a><span class="desc">Server alive ping (no-auth)</span></li>
+              <li><span class="method get">GET</span><a href="/api/debug/serial" target="_blank" class="path">/api/debug/serial</a><span class="desc">Live telemetry COM port state</span></li>
             </ul>
           </div>
         </div>
