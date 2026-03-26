@@ -1,0 +1,54 @@
+import mongoose, { Schema, Document, Types } from "mongoose";
+
+export interface IPatientProfile extends Document {
+  userId: Types.ObjectId;
+  dateOfBirth?: Date;
+  phone?: string;
+  address?: string;
+  medicalHistory?: string;
+  emergencyContact?: {
+    name: string;
+    phone: string;
+    relationship: string;
+  };
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+const patientProfileSchema = new Schema<IPatientProfile>(
+  {
+    userId: {
+      type: Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+      unique: true,
+    },
+    dateOfBirth: {
+      type: Date,
+    },
+    phone: {
+      type: String,
+      trim: true,
+    },
+    address: {
+      type: String,
+      trim: true,
+    },
+    medicalHistory: {
+      type: String,
+    },
+    emergencyContact: {
+      name: String,
+      phone: String,
+      relationship: String,
+    },
+  },
+  {
+    timestamps: true,
+  }
+);
+
+export const PatientProfile = mongoose.model<IPatientProfile>(
+  "PatientProfile",
+  patientProfileSchema
+);
