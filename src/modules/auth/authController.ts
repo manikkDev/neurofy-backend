@@ -19,7 +19,7 @@ export class AuthController {
           success: false,
           error: {
             message: "Validation error",
-            details: error.errors,
+            details: error.issues,
           },
         });
       }
@@ -50,7 +50,7 @@ export class AuthController {
           success: false,
           error: {
             message: "Validation error",
-            details: error.errors,
+            details: error.issues,
           },
         });
       }
