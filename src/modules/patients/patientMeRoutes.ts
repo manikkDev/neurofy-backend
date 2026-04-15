@@ -10,6 +10,7 @@ import { PatientService } from "./patientService";
 import { NoteService } from "../notes/noteService";
 import { Alert } from "../../models/Alert";
 import { User } from "../../models/User";
+import { getPatientLiveDeviceSnapshot } from "../serial/serialLiveState";
 
 const router = Router();
 
@@ -70,6 +71,16 @@ router.get("/stats", async (req: Request, res: Response, next: NextFunction) => 
   try {
     const stats = await PatientService.getPatientStats(req.user!.userId);
     res.json({ success: true, data: stats });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// GET /api/patients/me/live — current device connectivity + latest telemetry
+router.get("/live", async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const live = await getPatientLiveDeviceSnapshot(req.user!.userId);
+    res.json({ success: true, data: live });
   } catch (error) {
     next(error);
   }

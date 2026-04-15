@@ -25,6 +25,9 @@ export interface NormalizedTelemetry {
   /** UTC timestamp of the reading */
   detectedAt: Date;
 
+  /** Backend receive time for the serial line */
+  receivedAt: Date;
+
   /** Tremor detection state */
   status: TremorStatus;
 
@@ -70,6 +73,8 @@ export interface DetectionEvent {
     | "CALIBRATION"
     | "WIFI_STATUS"
     | "SCORE_UPDATE";
+  deviceId: string;
+  source: "SERIAL" | "WIRELESS";
   message: string;
   rawLine: string;
   ts: Date;
@@ -97,13 +102,22 @@ export interface ParserError {
   ts: Date;
 }
 
+export interface WaveformAvailability {
+  available: boolean;
+  reason: string;
+  source: "SERIAL" | "WIRELESS" | "NONE";
+}
+
 export interface SerialDebugSnapshot {
   connected: boolean;
   portPath: string;
   baudRate: number;
   lastConnectedAt?: Date;
   lastDisconnectedAt?: Date;
+  lastReceivedAt?: Date;
   recentRawLines: RawSerialLine[];
+  recentEvents: DetectionEvent[];
   lastNormalized?: NormalizedTelemetry;
   recentErrors: ParserError[];
+  waveform: WaveformAvailability;
 }

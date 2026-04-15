@@ -12,11 +12,13 @@ import type {
   RawSerialLine,
   NormalizedTelemetry,
   ParserError,
+  DetectionEvent,
   SerialDebugSnapshot,
 } from "./types";
 
 const MAX_RAW_LINES = 50;
 const MAX_ERRORS = 20;
+const MAX_EVENTS = 20;
 
 class SerialDebugStore {
   private _connected = false;
@@ -24,9 +26,16 @@ class SerialDebugStore {
   private _baudRate = 0;
   private _lastConnectedAt?: Date;
   private _lastDisconnectedAt?: Date;
+  private _lastReceivedAt?: Date;
   private _rawLines: RawSerialLine[] = [];
+  private _events: DetectionEvent[] = [];
   private _errors: ParserError[] = [];
   private _lastNormalized?: NormalizedTelemetry;
+  private _waveform: SerialDebugSnapshot["waveform"] = {
+    available: false,
+    reason: "Waveform not currently available from device stream",
+    source: "NONE",
+  };
 
   // ------------------------------------------------------------------
   // State setters (called by serialTransport)
@@ -58,8 +67,16 @@ class SerialDebugStore {
     }
   }
 
+  pushEvent(event: DetectionEvent): void {
+    this._events.push(event);
+    if (this._events.length > MAX_EVENTS) {
+      this._events.shift();
+    }
+  }
+
   setLastNormalized(telemetry: NormalizedTelemetry): void {
     this._lastNormalized = telemetry;
+    this._lastReceivedAt = telemetry.receivedAt;
   }
 
   // ------------------------------------------------------------------
@@ -73,9 +90,12 @@ class SerialDebugStore {
       baudRate: this._baudRate,
       lastConnectedAt: this._lastConnectedAt,
       lastDisconnectedAt: this._lastDisconnectedAt,
+      lastReceivedAt: this._lastReceivedAt,
       recentRawLines: [...this._rawLines].reverse(), // newest first
+      recentEvents: [...this._events].reverse(),
       lastNormalized: this._lastNormalized,
       recentErrors: [...this._errors].reverse(),
+      waveform: this._waveform,
     };
   }
 }

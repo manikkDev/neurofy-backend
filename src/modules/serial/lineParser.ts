@@ -103,6 +103,7 @@ function parsePipeRow(
     deviceId,
     source: "SERIAL",
     detectedAt: ts,
+    receivedAt: ts,
     status,
     frequencyHz: parseFloat(freq),
     snr: parseFloat(snr),
@@ -120,32 +121,32 @@ function parsePipeRow(
 // Path 2: Keyword / detection lines
 // ------------------------------------------------------------------
 
-function parseKeywordLine(line: string, ts: Date): DetectionEvent | null {
+ function parseKeywordLine(line: string, deviceId: string, ts: Date): DetectionEvent | null {
   const trimmed = line.trim();
 
   if (/^MONITORING STARTED/i.test(trimmed)) {
-    return { type: "MONITORING_STARTED", message: trimmed, rawLine: line, ts };
+    return { type: "MONITORING_STARTED", deviceId, source: "SERIAL", message: trimmed, rawLine: line, ts };
   }
   if (/^TREMOR DETECTED/i.test(trimmed)) {
-    return { type: "TREMOR_DETECTED", message: trimmed, rawLine: line, ts };
+    return { type: "TREMOR_DETECTED", deviceId, source: "SERIAL", message: trimmed, rawLine: line, ts };
   }
   if (/^\[CAL\]/i.test(trimmed)) {
-    return { type: "CALIBRATION", message: trimmed, rawLine: line, ts };
+    return { type: "CALIBRATION", deviceId, source: "SERIAL", message: trimmed, rawLine: line, ts };
   }
   if (/^\[WiFi\]/i.test(trimmed)) {
-    return { type: "WIFI_STATUS", message: trimmed, rawLine: line, ts };
+    return { type: "WIFI_STATUS", deviceId, source: "SERIAL", message: trimmed, rawLine: line, ts };
   }
   if (/^\[DETECT\].*Potential tremor/i.test(trimmed)) {
-    return { type: "POTENTIAL_TREMOR", message: trimmed, rawLine: line, ts };
+    return { type: "POTENTIAL_TREMOR", deviceId, source: "SERIAL", message: trimmed, rawLine: line, ts };
   }
   if (/^\[SKIP\]/i.test(trimmed)) {
-    return { type: "SKIP", message: trimmed, rawLine: line, ts };
+    return { type: "SKIP", deviceId, source: "SERIAL", message: trimmed, rawLine: line, ts };
   }
   if (/^\[END\]/i.test(trimmed) || /^END\s/i.test(trimmed)) {
-    return { type: "END", message: trimmed, rawLine: line, ts };
+    return { type: "END", deviceId, source: "SERIAL", message: trimmed, rawLine: line, ts };
   }
   if (/^\[SCORE\]/i.test(trimmed)) {
-    return { type: "SCORE_UPDATE", message: trimmed, rawLine: line, ts };
+    return { type: "SCORE_UPDATE", deviceId, source: "SERIAL", message: trimmed, rawLine: line, ts };
   }
 
   return null;
@@ -169,6 +170,7 @@ function tryParseJsonLine(
       deviceId: String(obj.deviceId ?? deviceId),
       source: "SERIAL",
       detectedAt: obj.detectedAt ? new Date(String(obj.detectedAt)) : ts,
+      receivedAt: ts,
       status: (obj.status as TremorStatus) ?? inferStatus(statusText, severity),
       frequencyHz: typeof obj.frequencyHz === "number" ? obj.frequencyHz : undefined,
       snr: typeof obj.snr === "number" ? obj.snr : undefined,
@@ -210,7 +212,7 @@ export function parseLine(line: string, deviceId: string): ParsedLine {
   if (pipeResult) return { kind: "telemetry", data: pipeResult };
 
   // Keyword / detection line
-  const keywordResult = parseKeywordLine(trimmed, ts);
+  const keywordResult = parseKeywordLine(trimmed, deviceId, ts);
   if (keywordResult) return { kind: "event", data: keywordResult };
 
   // Raw fallback

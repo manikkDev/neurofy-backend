@@ -86,20 +86,28 @@ export async function handleNormalizedTelemetry(
   // 1. Update in-memory debug store (always, no DB needed)
   serialDebugStore.setLastNormalized(telemetry);
 
-  // 2. Broadcast live telemetry to ALL subscribers via global event
-  //    Frontend subscribes to "telemetry:live" for bridge mode
-  broadcastLiveTelemetry("all", telemetry);
-
-  // 3. Attempt device/patient resolution for persistence
-  //    If device not paired, we still broadcast (step 2 above) but skip DB
+  // 2. Attempt device/patient resolution for patient-scoped broadcast + persistence
   const ctx = await tryResolveDevice(telemetry.deviceId);
 
   if (ctx) {
     const { deviceObjectId, patientId } = ctx;
     const patientIdStr = patientId.toString();
 
-    // Also broadcast to patient-scoped event for multi-patient setups
+    // Broadcast to patient-scoped listeners only
     broadcastLiveTelemetry(patientIdStr, telemetry);
+
+    try {
+      await Device.updateOne(
+        { _id: deviceObjectId },
+        {
+          $set: {
+            lastSyncAt: telemetry.receivedAt,
+          },
+        }
+      );
+    } catch (err) {
+      console.error("[SerialTelemetryService] Device sync update error:", err);
+    }
 
     // Persist to Telemetry collection
     try {
@@ -157,6 +165,8 @@ export async function handleNormalizedTelemetry(
  * Handle a detection event (keyword line from parser).
  */
 export async function handleDetectionEvent(event: DetectionEvent): Promise<void> {
+  serialDebugStore.pushEvent(event);
+
   if (event.type === "END" || event.type === "SKIP") {
     try {
       await episodeTracker.onEpisodeEnd();
@@ -176,9 +186,6 @@ export function notifyDeviceConnectionChange(
   connected: boolean
 ): void {
   const payload = { connected, deviceId, ts: new Date() };
-
-  // Always broadcast to global channel
-  broadcastDeviceStatus("all", payload);
 
   // Also broadcast to patient-scoped channel if device is cached/paired
   const ctx = deviceCache.get(deviceId);

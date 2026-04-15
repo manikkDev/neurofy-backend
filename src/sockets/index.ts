@@ -1,9 +1,25 @@
 import { Server as HttpServer } from "http";
 import { Server as SocketIOServer, Socket } from "socket.io";
 import { env } from "../config";
+import { TokenService, type TokenPayload } from "../modules/auth/tokenService";
+import { getAssignedPatients } from "../middlewares/access";
 import type { NormalizedTelemetry, RawSerialLine } from "../modules/serial/types";
 
 let io: SocketIOServer;
+
+function getTokenFromSocket(socket: Socket): string | null {
+  const authToken = socket.handshake.auth?.token;
+  if (typeof authToken === "string" && authToken.trim()) {
+    return authToken;
+  }
+
+  const header = socket.handshake.headers.authorization;
+  if (typeof header === "string" && header.startsWith("Bearer ")) {
+    return header.substring(7);
+  }
+
+  return null;
+}
 
 export function initializeSocket(httpServer: HttpServer): SocketIOServer {
   io = new SocketIOServer(httpServer, {
@@ -14,8 +30,44 @@ export function initializeSocket(httpServer: HttpServer): SocketIOServer {
     },
   });
 
-  io.on("connection", (socket: Socket) => {
+  io.use((socket, next) => {
+    const token = getTokenFromSocket(socket);
+    if (!token) {
+      return next();
+    }
+
+    try {
+      const payload = TokenService.verifyAccessToken(token);
+      socket.data.user = payload;
+      next();
+    } catch {
+      next(new Error("Unauthorized socket connection"));
+    }
+  });
+
+  io.on("connection", async (socket: Socket) => {
     console.log(`[Socket] Client connected: ${socket.id}`);
+
+    const user = socket.data.user as TokenPayload | undefined;
+
+    if (user) {
+      socket.join(`user:${user.userId}`);
+
+      if (user.role === "patient") {
+        socket.join(`patient:${user.userId}`);
+      }
+
+      if (user.role === "doctor") {
+        try {
+          const assignedPatients = await getAssignedPatients(user.userId);
+          assignedPatients.forEach((patientId) => {
+            socket.join(`patient:${patientId}`);
+          });
+        } catch (error) {
+          console.error(`[Socket] Failed to join doctor rooms for ${socket.id}:`, error);
+        }
+      }
+    }
 
     socket.on("disconnect", (reason) => {
       console.log(`[Socket] Client disconnected: ${socket.id} - ${reason}`);
@@ -52,7 +104,7 @@ export function broadcastLiveTelemetry(
   data: NormalizedTelemetry
 ): void {
   try {
-    getIO().emit(`telemetry:live:${patientId}`, data);
+    getIO().to(`patient:${patientId}`).emit(`telemetry:live:${patientId}`, data);
   } catch {
     // io not ready yet (startup race) — ignore
   }
@@ -68,7 +120,7 @@ export function broadcastDeviceStatus(
   data: { connected: boolean; deviceId: string; ts: Date }
 ): void {
   try {
-    getIO().emit(`device:status:${patientId}`, data);
+    getIO().to(`patient:${patientId}`).emit(`device:status:${patientId}`, data);
   } catch {
     // io not ready yet — ignore
   }
@@ -84,7 +136,7 @@ export function broadcastSevereAlert(
   alert: Record<string, unknown>
 ): void {
   try {
-    getIO().emit(`alert:severe:${patientId}`, alert);
+    getIO().to(`patient:${patientId}`).emit(`alert:severe:${patientId}`, alert);
   } catch {
     // io not ready yet — ignore
   }
