@@ -64,7 +64,8 @@ const deviceSchema = new Schema<IDevice>(
   }
 );
 
+// Compound index for patient device queries
 deviceSchema.index({ patientId: 1, status: 1 });
-deviceSchema.index({ deviceId: 1 });
+// Note: deviceId already has unique index from schema definition
 
 export const Device = mongoose.model<IDevice>("Device", deviceSchema);

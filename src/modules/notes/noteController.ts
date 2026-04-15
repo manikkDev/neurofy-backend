@@ -30,9 +30,20 @@ export class NoteController {
 
       let notes;
       if (role === "doctor") {
-        notes = patientId
-          ? await NoteService.getNotesByPatient(patientId as string)
-          : await NoteService.getNotesByDoctor(userId);
+        if (patientId) {
+          // Verify doctor is assigned to this patient
+          const { isAssignedDoctor } = await import("../../middlewares/access");
+          const isAssigned = await isAssignedDoctor(userId, patientId as string);
+          if (!isAssigned) {
+            return res.status(403).json({
+              success: false,
+              error: { message: "Access denied - patient not assigned to you" },
+            });
+          }
+          notes = await NoteService.getNotesByPatient(patientId as string);
+        } else {
+          notes = await NoteService.getNotesByDoctor(userId);
+        }
       } else {
         notes = await NoteService.getNotesByPatient(userId);
       }
@@ -55,6 +66,38 @@ export class NoteController {
           success: false,
           error: { message: "Note not found" },
         });
+      }
+
+      const userId = req.user?.userId;
+      const role = req.user?.role;
+
+      // Verify access: patient owns note OR doctor created note OR doctor is assigned
+      if (role === "patient") {
+        if (note.patientId.toString() !== userId) {
+          return res.status(403).json({
+            success: false,
+            error: { message: "Access denied" },
+          });
+        }
+        // Patient can only see non-private notes
+        if (note.isPrivate) {
+          return res.status(403).json({
+            success: false,
+            error: { message: "This note is private" },
+          });
+        }
+      } else if (role === "doctor") {
+        // Doctor can see notes they created OR for assigned patients
+        if (note.doctorId.toString() !== userId) {
+          const { isAssignedDoctor } = await import("../../middlewares/access");
+          const isAssigned = await isAssignedDoctor(userId!, note.patientId.toString());
+          if (!isAssigned) {
+            return res.status(403).json({
+              success: false,
+              error: { message: "Access denied - patient not assigned to you" },
+            });
+          }
+        }
       }
 
       res.status(200).json({

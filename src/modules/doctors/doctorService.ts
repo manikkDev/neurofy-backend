@@ -18,6 +18,8 @@ import { Appointment } from "../../models/Appointment";
 // ------------------------------------------------------------------
 
 export async function getDoctorDashboard(doctorId: string) {
+  const { PatientProfile } = await import("../../models/PatientProfile");
+  
   const [
     totalPatients,
     activeAlerts,
@@ -25,8 +27,8 @@ export async function getDoctorDashboard(doctorId: string) {
     recentAlerts,
     recentPatients,
   ] = await Promise.all([
-    // Total patient count in system (doctor sees all for MVP)
-    User.countDocuments({ role: "patient", isActive: true }),
+    // Total assigned patients only
+    PatientProfile.countDocuments({ assignedDoctorId: doctorId }),
 
     // Active severe alerts
     Alert.countDocuments({ severity: "SEVERE", status: "active" }),
@@ -89,9 +91,25 @@ export async function getDoctorDashboard(doctorId: string) {
 // Patient list with search
 // ------------------------------------------------------------------
 
-export async function getDoctorPatientList(query?: string) {
-  // Build base user filter
-  const userFilter: any = { role: "patient", isActive: true };
+export async function getDoctorPatientList(doctorId: string, query?: string) {
+  const { PatientProfile } = await import("../../models/PatientProfile");
+  
+  // First get assigned patient user IDs
+  const assignedProfiles = await PatientProfile.find({
+    assignedDoctorId: doctorId,
+  }).select("userId").lean();
+  
+  if (assignedProfiles.length === 0) return [];
+  
+  const assignedPatientIds = assignedProfiles.map((p) => p.userId);
+  
+  // Build base user filter - only assigned patients
+  const userFilter: any = { 
+    _id: { $in: assignedPatientIds },
+    role: "patient", 
+    isActive: true 
+  };
+  
   if (query && query.trim()) {
     const q = query.trim();
     userFilter.$or = [

@@ -9,6 +9,7 @@ import patientMeRouter from "../modules/patients/patientMeRoutes";
 import patientRouter from "../modules/patients/patientRoutes";
 import doctorRouter from "../modules/doctors/doctorRoutes";
 import serialDebugRouter from "../modules/serial/serialDebugRoutes";
+import assignmentRouter from "../modules/assignment/assignmentRoutes";
 
 const router = Router();
 
@@ -21,6 +22,7 @@ router.use("/notifications", notificationRouter);
 router.use("/patients/me", patientMeRouter);
 router.use("/patients", patientRouter);
 router.use("/doctors", doctorRouter);
+router.use("/assignment", assignmentRouter);
 router.use("/debug", serialDebugRouter);
 
 export default router;
