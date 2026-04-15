@@ -86,6 +86,26 @@ router.get("/live", async (req: Request, res: Response, next: NextFunction) => {
   }
 });
 
+// GET /api/patients/me/summary/daily — today's summary with trend
+router.get("/summary/daily", async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const summary = await PatientService.getDailySummary(req.user!.userId);
+    res.json({ success: true, data: summary });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// GET /api/patients/me/summary/weekly — this week's summary with trend
+router.get("/summary/weekly", async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const summary = await PatientService.getWeeklySummary(req.user!.userId);
+    res.json({ success: true, data: summary });
+  } catch (error) {
+    next(error);
+  }
+});
+
 // GET /api/patients/me/notes — patient-visible notes only (isPrivate: false)
 router.get("/notes", async (req: Request, res: Response, next: NextFunction) => {
   try {
