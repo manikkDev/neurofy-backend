@@ -14,6 +14,18 @@ export interface IReport extends Document {
     size: number;
     mimeType: string;
   };
+  reportPeriod?: {
+    start: Date;
+    end: Date;
+    label: string;
+  };
+  stats?: {
+    totalEpisodes: number;
+    severityBreakdown: { severe: number; moderate: number; mild: number };
+    totalDurationSeconds: number;
+    averageFrequency: number;
+    dominantSeverity: string;
+  };
   generatedAt: Date;
   createdAt: Date;
   updatedAt: Date;
@@ -54,6 +66,22 @@ const reportSchema = new Schema<IReport>(
       filename: String,
       size: Number,
       mimeType: String,
+    },
+    reportPeriod: {
+      start: Date,
+      end: Date,
+      label: String,
+    },
+    stats: {
+      totalEpisodes: Number,
+      severityBreakdown: {
+        severe: Number,
+        moderate: Number,
+        mild: Number,
+      },
+      totalDurationSeconds: Number,
+      averageFrequency: Number,
+      dominantSeverity: String,
     },
     generatedAt: {
       type: Date,

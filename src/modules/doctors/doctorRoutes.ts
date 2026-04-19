@@ -8,6 +8,7 @@ import { Router, Request, Response, NextFunction } from "express";
 import { authenticate, requireRole } from "../../middlewares/auth";
 import { requirePatientAccess } from "../../middlewares/access";
 import * as DoctorService from "./doctorService";
+import { getPatientLiveDeviceSnapshot } from "../serial/serialLiveState";
 
 const router = Router();
 
@@ -36,6 +37,21 @@ router.get("/patients", async (req: Request, res: Response, next: NextFunction) 
     next(err);
   }
 });
+
+// ── Patient live telemetry snapshot ─────────────────────────────────
+// GET /api/doctors/patients/:patientId/live
+router.get(
+  "/patients/:patientId/live",
+  requirePatientAccess("patientId"),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const live = await getPatientLiveDeviceSnapshot(req.params.patientId);
+      res.json({ success: true, data: live });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
 
 // ── Patient clinical detail ─────────────────────────────────────────
 // GET /api/doctors/patients/:patientId/detail
@@ -95,22 +111,69 @@ router.get(
 );
 
 // ── Reports ──────────────────────────────────────────────────────────
+// GET /api/doctors/patients/:patientId/report-summary?period=daily|weekly
+router.get(
+  "/patients/:patientId/report-summary",
+  requirePatientAccess("patientId"),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const period = (req.query.period as "daily" | "weekly") || "weekly";
+      if (!["daily", "weekly"].includes(period)) {
+        return res.status(400).json({ success: false, error: { message: "Invalid period" } });
+      }
+      const summary = await DoctorService.computeReportPeriodSummary(
+        req.params.patientId,
+        period
+      );
+      res.json({ success: true, data: summary });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
 // POST /api/doctors/patients/:patientId/reports
 router.post(
   "/patients/:patientId/reports",
   requirePatientAccess("patientId"),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const { title, summary, status } = req.body;
+      const { title, summary, status, period } = req.body;
       if (!title?.trim() || !summary?.trim()) {
         return res.status(400).json({ success: false, error: { message: "Title and summary are required" } });
       }
+
+      // If period provided, compute stats and attach
+      let stats: any;
+      let reportPeriod: any;
+
+      if (period === "daily" || period === "weekly") {
+        const periodSummary = await DoctorService.computeReportPeriodSummary(
+          req.params.patientId,
+          period
+        );
+        stats = {
+          totalEpisodes: periodSummary.totalEpisodes,
+          severityBreakdown: periodSummary.severityBreakdown,
+          totalDurationSeconds: periodSummary.totalDurationSeconds,
+          averageFrequency: periodSummary.averageFrequency,
+          dominantSeverity: periodSummary.dominantSeverity,
+        };
+        reportPeriod = {
+          start: periodSummary.startDate,
+          end: periodSummary.endDate,
+          label: period === "daily" ? "Today" : "Past 7 Days",
+        };
+      }
+
       const report = await DoctorService.createReport({
         patientId: req.params.patientId,
         doctorId: req.user!.userId,
         title: title.trim(),
         summary: summary.trim(),
         status: status ?? "completed",
+        stats,
+        reportPeriod,
       });
       res.status(201).json({ success: true, data: report });
     } catch (err) {
@@ -137,7 +200,7 @@ router.get(
 // GET /api/doctors/alerts/severe
 router.get("/alerts/severe", async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const alerts = await DoctorService.getSevereAlerts();
+    const alerts = await DoctorService.getSevereAlerts(req.user!.userId);
     res.json({ success: true, data: alerts });
   } catch (err) {
     next(err);

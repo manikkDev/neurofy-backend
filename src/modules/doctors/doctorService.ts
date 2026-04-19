@@ -19,7 +19,13 @@ import { Appointment } from "../../models/Appointment";
 
 export async function getDoctorDashboard(doctorId: string) {
   const { PatientProfile } = await import("../../models/PatientProfile");
-  
+
+  // Resolve assigned patient IDs first for RBAC scoping
+  const assignedProfiles = await PatientProfile.find({ assignedDoctorId: doctorId })
+    .select("userId")
+    .lean();
+  const assignedPatientIds = assignedProfiles.map((p) => p.userId);
+
   const [
     totalPatients,
     activeAlerts,
@@ -27,11 +33,14 @@ export async function getDoctorDashboard(doctorId: string) {
     recentAlerts,
     recentPatients,
   ] = await Promise.all([
-    // Total assigned patients only
-    PatientProfile.countDocuments({ assignedDoctorId: doctorId }),
+    Promise.resolve(assignedPatientIds.length),
 
-    // Active severe alerts
-    Alert.countDocuments({ severity: "SEVERE", status: "active" }),
+    // Active severe alerts for assigned patients only
+    Alert.countDocuments({
+      severity: "SEVERE",
+      status: "active",
+      patientId: { $in: assignedPatientIds },
+    }),
 
     // Pending appointments for this doctor
     Appointment.countDocuments({
@@ -40,15 +49,19 @@ export async function getDoctorDashboard(doctorId: string) {
       scheduledAt: { $gte: new Date() },
     }),
 
-    // Last 5 severe alerts with patient info
-    Alert.find({ severity: "SEVERE" })
+    // Last 5 severe alerts from assigned patients only
+    Alert.find({
+      severity: "SEVERE",
+      patientId: { $in: assignedPatientIds },
+    })
       .sort({ triggeredAt: -1 })
       .limit(5)
       .populate("patientId", "name email")
       .lean(),
 
-    // Last 5 patients with a recent episode
+    // Last 5 assigned patients with a recent episode
     TremorEpisode.aggregate([
+      { $match: { patientId: { $in: assignedPatientIds } } },
       { $sort: { startedAt: -1 } },
       {
         $group: {
@@ -84,6 +97,60 @@ export async function getDoctorDashboard(doctorId: string) {
     pendingAppointments,
     recentAlerts,
     recentPatients,
+  };
+}
+
+// ------------------------------------------------------------------
+// Report period summary computation (for doctors creating reports)
+// ------------------------------------------------------------------
+
+export async function computeReportPeriodSummary(
+  patientId: string,
+  period: "daily" | "weekly" | "custom",
+  customStart?: Date,
+  customEnd?: Date
+) {
+  const now = new Date();
+  let startDate: Date;
+  let endDate: Date = now;
+
+  if (period === "daily") {
+    startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  } else if (period === "weekly") {
+    startDate = new Date(now);
+    startDate.setDate(now.getDate() - 7);
+    startDate.setHours(0, 0, 0, 0);
+  } else {
+    if (!customStart || !customEnd) throw new Error("Custom period requires start and end dates");
+    startDate = customStart;
+    endDate = customEnd;
+  }
+
+  const episodes = await TremorEpisode.find({
+    patientId,
+    startedAt: { $gte: startDate, $lte: endDate },
+  }).lean();
+
+  const total = episodes.length;
+  const severe = episodes.filter((e) => e.maxSeverity === "SEVERE").length;
+  const moderate = episodes.filter((e) => e.maxSeverity === "MODERATE").length;
+  const mild = episodes.filter((e) => e.maxSeverity === "MILD").length;
+
+  const totalDuration = episodes.reduce((sum, e) => sum + (e.durationSec || 0), 0);
+  const avgFrequency =
+    episodes.length > 0
+      ? episodes.reduce((sum, e) => sum + (e.avgFrequencyHz || 0), 0) / episodes.length
+      : 0;
+
+  return {
+    period,
+    startDate,
+    endDate,
+    totalEpisodes: total,
+    severityBreakdown: { severe, moderate, mild },
+    totalDurationSeconds: totalDuration,
+    averageFrequency: avgFrequency,
+    dominantSeverity: severe > 0 ? "SEVERE" : moderate > 0 ? "MODERATE" : mild > 0 ? "MILD" : "NONE",
   };
 }
 
@@ -288,6 +355,8 @@ export async function createReport(data: {
   title: string;
   summary: string;
   status?: "draft" | "completed";
+  stats?: any;
+  reportPeriod?: { start: Date; end: Date; label: string };
 }) {
   const report = await Report.create({
     ...data,
@@ -308,8 +377,19 @@ export async function getPatientReports(patientId: string) {
 // Severe Alerts
 // ------------------------------------------------------------------
 
-export async function getSevereAlerts(limit = 50) {
-  return Alert.find({ severity: "SEVERE" })
+export async function getSevereAlerts(doctorId: string, limit = 50) {
+  const { PatientProfile } = await import("../../models/PatientProfile");
+  
+  // RBAC: scope to assigned patients only
+  const assignedProfiles = await PatientProfile.find({ assignedDoctorId: doctorId })
+    .select("userId")
+    .lean();
+  const assignedPatientIds = assignedProfiles.map((p) => p.userId);
+  
+  return Alert.find({
+    severity: "SEVERE",
+    patientId: { $in: assignedPatientIds },
+  })
     .populate("patientId", "name email")
     .sort({ triggeredAt: -1 })
     .limit(limit)
@@ -317,6 +397,19 @@ export async function getSevereAlerts(limit = 50) {
 }
 
 export async function acknowledgeAlert(alertId: string, doctorId: string) {
+  const { PatientProfile } = await import("../../models/PatientProfile");
+  
+  // RBAC: verify the alert belongs to one of doctor's assigned patients
+  const alert = await Alert.findById(alertId).lean();
+  if (!alert) return null;
+  
+  const profile = await PatientProfile.findOne({
+    userId: alert.patientId,
+    assignedDoctorId: doctorId,
+  }).lean();
+  
+  if (!profile) return null; // Not assigned to this doctor
+  
   return Alert.findByIdAndUpdate(
     alertId,
     {
