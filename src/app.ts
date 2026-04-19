@@ -1,18 +1,32 @@
 import express from "express";
 import cors from "cors";
+import helmet from "helmet";
 import { env } from "./config";
 import { errorHandler, notFoundHandler } from "./middlewares";
+import { sanitizeQuery, apiLimiter } from "./middlewares/security";
 import apiRouter from "./routes";
 
 const app = express();
 
-// --- Core Middlewares ---
+// --- Security Middlewares ---
+app.use(helmet({
+  contentSecurityPolicy: false, // Allow frontend to load resources
+  crossOriginEmbedderPolicy: false,
+}));
+
 app.use(cors({
   origin: env.CLIENT_URL,
   credentials: true,
+  methods: ["GET", "POST", "PATCH", "DELETE", "PUT"],
+  allowedHeaders: ["Content-Type", "Authorization"],
 }));
+
+// --- Body Parsing with Size Limits ---
 app.use(express.json({ limit: "1mb" }));
-app.use(express.urlencoded({ extended: true }));
+app.use(express.urlencoded({ extended: true, limit: "1mb" }));
+
+// --- Query Sanitization ---
+app.use(sanitizeQuery);
 
 // --- Root Welcome Route ---
 app.get("/", (req, res) => {
@@ -155,8 +169,55 @@ app.get("/", (req, res) => {
   res.status(200).send(html);
 });
 
-// --- API Routes ---
-app.use("/api", apiRouter);
+// --- Health & Readiness Endpoints ---
+app.get("/api/health", (req, res) => {
+  res.status(200).json({
+    success: true,
+    data: {
+      status: "healthy",
+      timestamp: new Date().toISOString(),
+      uptime: process.uptime(),
+    },
+  });
+});
+
+app.get("/api/readiness", async (req, res) => {
+  try {
+    const mongoose = await import("mongoose");
+    const dbReady = mongoose.connection.readyState === 1;
+    
+    if (!dbReady) {
+      return res.status(503).json({
+        success: false,
+        data: {
+          status: "not_ready",
+          database: "disconnected",
+          timestamp: new Date().toISOString(),
+        },
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: {
+        status: "ready",
+        database: "connected",
+        timestamp: new Date().toISOString(),
+      },
+    });
+  } catch (error) {
+    res.status(503).json({
+      success: false,
+      data: {
+        status: "error",
+        timestamp: new Date().toISOString(),
+      },
+    });
+  }
+});
+
+// --- API Routes with Rate Limiting ---
+app.use("/api", apiLimiter, apiRouter);
 
 // --- 404 Handler ---
 app.use(notFoundHandler);

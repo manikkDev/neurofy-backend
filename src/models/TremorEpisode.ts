@@ -71,8 +71,11 @@ const tremorEpisodeSchema = new Schema<ITremorEpisode>(
   }
 );
 
-tremorEpisodeSchema.index({ patientId: 1, startedAt: -1 });
-tremorEpisodeSchema.index({ maxSeverity: 1, startedAt: -1 });
+// Compound indexes for common query patterns
+tremorEpisodeSchema.index({ patientId: 1, startedAt: -1 }); // Patient history queries
+tremorEpisodeSchema.index({ maxSeverity: 1, startedAt: -1 }); // Severity filtering
+tremorEpisodeSchema.index({ patientId: 1, maxSeverity: 1, startedAt: -1 }); // Patient + severity queries
+tremorEpisodeSchema.index({ patientId: 1, createdAt: -1 }); // Recent episodes for stats
 
 export const TremorEpisode = mongoose.model<ITremorEpisode>(
   "TremorEpisode",

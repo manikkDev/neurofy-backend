@@ -9,6 +9,7 @@
  */
 import { Router, Request, Response, NextFunction } from "express";
 import { authenticate, requireRole } from "../../middlewares/auth";
+import { validateObjectId, strictLimiter } from "../../middlewares/security";
 import { Report } from "../../models/Report";
 import { NotificationService } from "../notifications/notificationService";
 import { generateReportPdf, getReportEpisodes } from "./reportPdfGenerator";
@@ -29,7 +30,7 @@ router.get("/", async (req: Request, res: Response, next: NextFunction) => {
 });
 
 // Get report by ID
-router.get("/:id", async (req: Request, res: Response, next: NextFunction) => {
+router.get("/:id", validateObjectId("id"), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const report = await Report.findById(req.params.id)
       .populate("patientId", "name email")
@@ -85,7 +86,7 @@ router.post(
 );
 
 // Download report as PDF
-router.get("/:id/download", async (req: Request, res: Response, next: NextFunction) => {
+router.get("/:id/download", validateObjectId("id"), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const report = await Report.findById(req.params.id)
       .populate("patientId", "name email")
@@ -135,6 +136,8 @@ router.get("/:id/download", async (req: Request, res: Response, next: NextFuncti
 // Update report status (doctor only)
 router.patch(
   "/:id/status",
+  validateObjectId("id"),
+  strictLimiter,
   requireRole("doctor"),
   async (req: Request, res: Response, next: NextFunction) => {
     try {

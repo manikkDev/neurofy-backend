@@ -96,6 +96,7 @@ const reportSchema = new Schema<IReport>(
 
 reportSchema.index({ patientId: 1, generatedAt: -1 });
 reportSchema.index({ doctorId: 1, generatedAt: -1 });
+reportSchema.index({ doctorId: 1, status: 1, generatedAt: -1 }); // Doctor filtered queries
 reportSchema.index({ status: 1 });
 
 export const Report = mongoose.model<IReport>("Report", reportSchema);

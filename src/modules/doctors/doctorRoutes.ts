@@ -7,6 +7,7 @@
 import { Router, Request, Response, NextFunction } from "express";
 import { authenticate, requireRole } from "../../middlewares/auth";
 import { requirePatientAccess } from "../../middlewares/access";
+import { validateObjectId, validatePagination, validateDateRange, strictLimiter } from "../../middlewares/security";
 import * as DoctorService from "./doctorService";
 import { getPatientLiveDeviceSnapshot } from "../serial/serialLiveState";
 
@@ -42,6 +43,7 @@ router.get("/patients", async (req: Request, res: Response, next: NextFunction) 
 // GET /api/doctors/patients/:patientId/live
 router.get(
   "/patients/:patientId/live",
+  validateObjectId("patientId"),
   requirePatientAccess("patientId"),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -56,7 +58,8 @@ router.get(
 // ── Patient clinical detail ─────────────────────────────────────────
 // GET /api/doctors/patients/:patientId/detail
 router.get(
-  "/patients/:patientId/detail", 
+  "/patients/:patientId/detail",
+  validateObjectId("patientId"),
   requirePatientAccess("patientId"),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -75,12 +78,17 @@ router.get(
 // POST /api/doctors/patients/:patientId/notes
 router.post(
   "/patients/:patientId/notes",
+  validateObjectId("patientId"),
+  strictLimiter,
   requirePatientAccess("patientId"),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { content, diagnosis, isPrivate } = req.body;
       if (!content?.trim()) {
         return res.status(400).json({ success: false, error: { message: "Note content is required" } });
+      }
+      if (content.length > 5000) {
+        return res.status(400).json({ success: false, error: { message: "Note content too long (max 5000 chars)" } });
       }
       const note = await DoctorService.createNote({
         patientId: req.params.patientId,
@@ -99,6 +107,7 @@ router.post(
 // GET /api/doctors/patients/:patientId/notes
 router.get(
   "/patients/:patientId/notes",
+  validateObjectId("patientId"),
   requirePatientAccess("patientId"),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -114,6 +123,7 @@ router.get(
 // GET /api/doctors/patients/:patientId/report-summary?period=daily|weekly
 router.get(
   "/patients/:patientId/report-summary",
+  validateObjectId("patientId"),
   requirePatientAccess("patientId"),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -135,12 +145,20 @@ router.get(
 // POST /api/doctors/patients/:patientId/reports
 router.post(
   "/patients/:patientId/reports",
+  validateObjectId("patientId"),
+  strictLimiter,
   requirePatientAccess("patientId"),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { title, summary, status, period } = req.body;
       if (!title?.trim() || !summary?.trim()) {
         return res.status(400).json({ success: false, error: { message: "Title and summary are required" } });
+      }
+      if (title.length > 200) {
+        return res.status(400).json({ success: false, error: { message: "Title too long (max 200 chars)" } });
+      }
+      if (summary.length > 10000) {
+        return res.status(400).json({ success: false, error: { message: "Summary too long (max 10000 chars)" } });
       }
 
       // If period provided, compute stats and attach
@@ -185,6 +203,7 @@ router.post(
 // GET /api/doctors/patients/:patientId/reports
 router.get(
   "/patients/:patientId/reports",
+  validateObjectId("patientId"),
   requirePatientAccess("patientId"),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
