@@ -5,7 +5,8 @@ export type NotificationType =
   | "alert" 
   | "report" 
   | "note" 
-  | "system";
+  | "system"
+  | "assignment";
 
 export interface INotification extends Document {
   userId: Types.ObjectId;
@@ -28,7 +29,7 @@ const notificationSchema = new Schema<INotification>(
     },
     type: {
       type: String,
-      enum: ["appointment", "alert", "report", "note", "system"],
+      enum: ["appointment", "alert", "report", "note", "system", "assignment"],
       required: [true, "Notification type is required"],
     },
     title: {
