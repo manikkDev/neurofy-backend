@@ -162,17 +162,25 @@ export async function getDoctorPatientList(doctorId: string, query?: string) {
   const { PatientProfile } = await import("../../models/PatientProfile");
   
   console.log("[getDoctorPatientList] Looking for patients assigned to doctor:", doctorId);
+  console.log("[getDoctorPatientList] DoctorId type:", typeof doctorId);
+  
+  // DEBUG: Print ALL patient profiles to see what's in the database
+  const allProfiles = await PatientProfile.find({}).lean();
+  console.log("[getDoctorPatientList] ALL PROFILES IN DB:", allProfiles.length);
+  allProfiles.forEach((p, i) => {
+    console.log(`  [${i}] userId: ${p.userId}, assignedDoctorId: ${p.assignedDoctorId}, match: ${p.assignedDoctorId === doctorId}`);
+  });
   
   // First get assigned patient user IDs
   const assignedProfiles = await PatientProfile.find({
     assignedDoctorId: doctorId,
   }).select("userId").lean();
   
-  console.log("[getDoctorPatientList] Found assigned profiles:", assignedProfiles.length);
+  console.log("[getDoctorPatientList] Found assigned profiles for this doctor:", assignedProfiles.length);
   console.log("[getDoctorPatientList] Profile userIds:", assignedProfiles.map(p => p.userId.toString()));
   
   if (assignedProfiles.length === 0) {
-    console.log("[getDoctorPatientList] No profiles found, returning empty array");
+    console.log("[getDoctorPatientList] No profiles found for doctor", doctorId);
     return [];
   }
   
