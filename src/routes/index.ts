@@ -10,6 +10,7 @@ import patientRouter from "../modules/patients/patientRoutes";
 import doctorRouter from "../modules/doctors/doctorRoutes";
 import serialDebugRouter from "../modules/serial/serialDebugRoutes";
 import assignmentRouter from "../modules/assignment/assignmentRoutes";
+import deviceRouter from "../modules/devices/deviceRoutes";
 
 const router = Router();
 
@@ -23,6 +24,7 @@ router.use("/patients/me", patientMeRouter);
 router.use("/patients", patientRouter);
 router.use("/doctors", doctorRouter);
 router.use("/assignment", assignmentRouter);
+router.use("/devices", deviceRouter);
 router.use("/debug", serialDebugRouter);
 
 export default router;

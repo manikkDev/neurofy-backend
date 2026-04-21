@@ -5,6 +5,7 @@ import http from "http";
 import app from "./app";
 import { env, connectDatabase } from "./config";
 import { initializeSocket } from "./sockets";
+import { initializeWifiDeviceSocket } from "./modules/wifi/wifiDeviceSocket";
 import { startSerialIngestion, stopSerialIngestion } from "./modules/serial";
 
 async function startServer(): Promise<void> {
@@ -14,8 +15,11 @@ async function startServer(): Promise<void> {
   // Create HTTP server from Express app
   const httpServer = http.createServer(app);
 
-  // Initialize Socket.IO
+  // Initialize Socket.IO for frontend
   initializeSocket(httpServer);
+
+  // Initialize plain WebSocket server for WiFi devices
+  initializeWifiDeviceSocket(httpServer);
 
   // Start listening
   httpServer.listen(env.PORT, () => {
