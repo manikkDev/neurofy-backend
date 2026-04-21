@@ -32,6 +32,7 @@ router.get("/dashboard", async (req: Request, res: Response, next: NextFunction)
 router.get("/patients", async (req: Request, res: Response, next: NextFunction) => {
   try {
     const q = req.query.q as string | undefined;
+    console.log("[Route /patients GET] Doctor ID from token:", req.user!.userId);
     const patients = await DoctorService.getDoctorPatientList(req.user!.userId, q);
     res.json({ success: true, data: patients });
   } catch (err) {
@@ -62,6 +63,9 @@ router.post("/patients/search-by-email", async (req: Request, res: Response, nex
 router.post("/patients/add", async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { patientId } = req.body;
+    console.log("[Route /patients/add] User:", req.user);
+    console.log("[Route /patients/add] Doctor ID from token:", req.user!.userId);
+    
     if (!patientId) {
       return res.status(400).json({ success: false, error: { message: "Patient ID is required" } });
     }

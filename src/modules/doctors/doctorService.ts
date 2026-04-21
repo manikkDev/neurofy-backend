@@ -161,12 +161,20 @@ export async function computeReportPeriodSummary(
 export async function getDoctorPatientList(doctorId: string, query?: string) {
   const { PatientProfile } = await import("../../models/PatientProfile");
   
+  console.log("[getDoctorPatientList] Looking for patients assigned to doctor:", doctorId);
+  
   // First get assigned patient user IDs
   const assignedProfiles = await PatientProfile.find({
     assignedDoctorId: doctorId,
   }).select("userId").lean();
   
-  if (assignedProfiles.length === 0) return [];
+  console.log("[getDoctorPatientList] Found assigned profiles:", assignedProfiles.length);
+  console.log("[getDoctorPatientList] Profile userIds:", assignedProfiles.map(p => p.userId.toString()));
+  
+  if (assignedProfiles.length === 0) {
+    console.log("[getDoctorPatientList] No profiles found, returning empty array");
+    return [];
+  }
   
   const assignedPatientIds = assignedProfiles.map((p) => p.userId);
   
@@ -467,6 +475,8 @@ export async function searchPatientByEmail(email: string, doctorId: string) {
 export async function addPatientToDoctor(doctorId: string, patientId: string) {
   const { PatientProfile } = await import("../../models/PatientProfile");
   
+  console.log("[addPatientToDoctor] Adding patient:", patientId, "to doctor:", doctorId);
+  
   // Verify patient exists
   const patient = await User.findOne({ 
     _id: patientId, 
@@ -484,6 +494,8 @@ export async function addPatientToDoctor(doctorId: string, patientId: string) {
     assignedDoctorId: doctorId,
   }).lean();
   
+  console.log("[addPatientToDoctor] Existing assignment:", existingAssignment);
+  
   if (existingAssignment) {
     throw new Error("Patient already assigned");
   }
@@ -500,6 +512,8 @@ export async function addPatientToDoctor(doctorId: string, patientId: string) {
       upsert: true 
     }
   ).lean();
+  
+  console.log("[addPatientToDoctor] Created/updated profile:", patientProfile);
   
   // Create notification for patient
   const { Notification } = await import("../../models/Notification");
