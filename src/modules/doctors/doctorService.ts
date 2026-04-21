@@ -160,20 +160,17 @@ export async function computeReportPeriodSummary(
 
 export async function getDoctorPatientList(doctorId: string, query?: string) {
   const { PatientProfile } = await import("../../models/PatientProfile");
+  const mongoose = await import("mongoose");
+  
+  // Convert doctorId string to ObjectId for proper MongoDB matching
+  const doctorObjectId = new mongoose.Types.ObjectId(doctorId);
   
   console.log("[getDoctorPatientList] Looking for patients assigned to doctor:", doctorId);
-  console.log("[getDoctorPatientList] DoctorId type:", typeof doctorId);
-  
-  // DEBUG: Print ALL patient profiles to see what's in the database
-  const allProfiles = await PatientProfile.find({}).lean();
-  console.log("[getDoctorPatientList] ALL PROFILES IN DB:", allProfiles.length);
-  allProfiles.forEach((p, i) => {
-    console.log(`  [${i}] userId: ${p.userId}, assignedDoctorId: ${p.assignedDoctorId}, match: ${p.assignedDoctorId === doctorId}`);
-  });
+  console.log("[getDoctorPatientList] Converted to ObjectId:", doctorObjectId);
   
   // First get assigned patient user IDs
   const assignedProfiles = await PatientProfile.find({
-    assignedDoctorId: doctorId,
+    assignedDoctorId: doctorObjectId,
   }).select("userId").lean();
   
   console.log("[getDoctorPatientList] Found assigned profiles for this doctor:", assignedProfiles.length);
@@ -443,6 +440,10 @@ export async function acknowledgeAlert(alertId: string, doctorId: string) {
 
 export async function searchPatientByEmail(email: string, doctorId: string) {
   const { PatientProfile } = await import("../../models/PatientProfile");
+  const mongoose = await import("mongoose");
+  
+  // Convert doctorId to ObjectId for proper comparison
+  const doctorObjectId = new mongoose.Types.ObjectId(doctorId);
   
   // Find patient by email
   const patient = await User.findOne({ 
@@ -458,7 +459,7 @@ export async function searchPatientByEmail(email: string, doctorId: string) {
   // Check if already assigned to this doctor
   const existingAssignment = await PatientProfile.findOne({
     userId: patient._id,
-    assignedDoctorId: doctorId,
+    assignedDoctorId: doctorObjectId,
   }).lean();
   
   // Get patient profile info
@@ -482,12 +483,18 @@ export async function searchPatientByEmail(email: string, doctorId: string) {
 
 export async function addPatientToDoctor(doctorId: string, patientId: string) {
   const { PatientProfile } = await import("../../models/PatientProfile");
+  const mongoose = await import("mongoose");
+  
+  // Convert string IDs to ObjectIds for proper MongoDB matching
+  const doctorObjectId = new mongoose.Types.ObjectId(doctorId);
+  const patientObjectId = new mongoose.Types.ObjectId(patientId);
   
   console.log("[addPatientToDoctor] Adding patient:", patientId, "to doctor:", doctorId);
+  console.log("[addPatientToDoctor] Converted IDs - doctor:", doctorObjectId, "patient:", patientObjectId);
   
   // Verify patient exists
   const patient = await User.findOne({ 
-    _id: patientId, 
+    _id: patientObjectId, 
     role: "patient", 
     isActive: true 
   }).lean();
@@ -498,8 +505,8 @@ export async function addPatientToDoctor(doctorId: string, patientId: string) {
   
   // Check if already assigned
   const existingAssignment = await PatientProfile.findOne({
-    userId: patientId,
-    assignedDoctorId: doctorId,
+    userId: patientObjectId,
+    assignedDoctorId: doctorObjectId,
   }).lean();
   
   console.log("[addPatientToDoctor] Existing assignment:", existingAssignment);
@@ -510,9 +517,9 @@ export async function addPatientToDoctor(doctorId: string, patientId: string) {
   
   // Create or update patient profile with doctor assignment
   const patientProfile = await PatientProfile.findOneAndUpdate(
-    { userId: patientId },
+    { userId: patientObjectId },
     { 
-      assignedDoctorId: doctorId,
+      assignedDoctorId: doctorObjectId,
       assignedAt: new Date(),
     },
     { 
@@ -526,7 +533,7 @@ export async function addPatientToDoctor(doctorId: string, patientId: string) {
   // Create notification for patient
   const { Notification } = await import("../../models/Notification");
   await Notification.create({
-    userId: patientId,
+    userId: patientObjectId,
     type: "assignment",
     title: "New Doctor Assigned",
     message: `A doctor has been assigned to your care. You can now view your medical information and communicate through the platform.`,
@@ -534,7 +541,7 @@ export async function addPatientToDoctor(doctorId: string, patientId: string) {
   });
   
   // Get doctor info for notification
-  const doctor = await User.findById(doctorId).select("name").lean();
+  const doctor = await User.findById(doctorObjectId).select("name").lean();
   
   return {
     patient: {
