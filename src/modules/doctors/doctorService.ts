@@ -19,9 +19,13 @@ import { Appointment } from "../../models/Appointment";
 
 export async function getDoctorDashboard(doctorId: string) {
   const { PatientProfile } = await import("../../models/PatientProfile");
+  const mongoose = await import("mongoose");
+  
+  // Convert doctorId to ObjectId for proper MongoDB matching
+  const doctorObjectId = new mongoose.Types.ObjectId(doctorId);
 
   // Resolve assigned patient IDs first for RBAC scoping
-  const assignedProfiles = await PatientProfile.find({ assignedDoctorId: doctorId })
+  const assignedProfiles = await PatientProfile.find({ assignedDoctorId: doctorObjectId })
     .select("userId")
     .lean();
   const assignedPatientIds = assignedProfiles.map((p) => p.userId);
@@ -162,11 +166,17 @@ export async function getDoctorPatientList(doctorId: string, query?: string) {
   const { PatientProfile } = await import("../../models/PatientProfile");
   const mongoose = await import("mongoose");
   
-  // Convert doctorId string to ObjectId for proper MongoDB matching
-  const doctorObjectId = new mongoose.Types.ObjectId(doctorId);
-  
   console.log("[getDoctorPatientList] Looking for patients assigned to doctor:", doctorId);
-  console.log("[getDoctorPatientList] Converted to ObjectId:", doctorObjectId);
+  
+  // Convert doctorId string to ObjectId for proper MongoDB matching
+  let doctorObjectId;
+  try {
+    doctorObjectId = new mongoose.Types.ObjectId(doctorId);
+    console.log("[getDoctorPatientList] Converted to ObjectId:", doctorObjectId);
+  } catch (e) {
+    console.error("[getDoctorPatientList] Invalid doctorId:", doctorId);
+    return [];
+  }
   
   // First get assigned patient user IDs
   const assignedProfiles = await PatientProfile.find({
@@ -392,9 +402,13 @@ export async function getPatientReports(patientId: string) {
 
 export async function getSevereAlerts(doctorId: string, limit = 50) {
   const { PatientProfile } = await import("../../models/PatientProfile");
+  const mongoose = await import("mongoose");
+  
+  // Convert doctorId to ObjectId for proper MongoDB matching
+  const doctorObjectId = new mongoose.Types.ObjectId(doctorId);
   
   // RBAC: scope to assigned patients only
-  const assignedProfiles = await PatientProfile.find({ assignedDoctorId: doctorId })
+  const assignedProfiles = await PatientProfile.find({ assignedDoctorId: doctorObjectId })
     .select("userId")
     .lean();
   const assignedPatientIds = assignedProfiles.map((p) => p.userId);
@@ -411,6 +425,10 @@ export async function getSevereAlerts(doctorId: string, limit = 50) {
 
 export async function acknowledgeAlert(alertId: string, doctorId: string) {
   const { PatientProfile } = await import("../../models/PatientProfile");
+  const mongoose = await import("mongoose");
+  
+  // Convert doctorId to ObjectId for proper MongoDB matching
+  const doctorObjectId = new mongoose.Types.ObjectId(doctorId);
   
   // RBAC: verify the alert belongs to one of doctor's assigned patients
   const alert = await Alert.findById(alertId).lean();
@@ -418,7 +436,7 @@ export async function acknowledgeAlert(alertId: string, doctorId: string) {
   
   const profile = await PatientProfile.findOne({
     userId: alert.patientId,
-    assignedDoctorId: doctorId,
+    assignedDoctorId: doctorObjectId,
   }).lean();
   
   if (!profile) return null; // Not assigned to this doctor
@@ -485,12 +503,18 @@ export async function addPatientToDoctor(doctorId: string, patientId: string) {
   const { PatientProfile } = await import("../../models/PatientProfile");
   const mongoose = await import("mongoose");
   
-  // Convert string IDs to ObjectIds for proper MongoDB matching
-  const doctorObjectId = new mongoose.Types.ObjectId(doctorId);
-  const patientObjectId = new mongoose.Types.ObjectId(patientId);
-  
   console.log("[addPatientToDoctor] Adding patient:", patientId, "to doctor:", doctorId);
-  console.log("[addPatientToDoctor] Converted IDs - doctor:", doctorObjectId, "patient:", patientObjectId);
+  
+  // Convert string IDs to ObjectIds for proper MongoDB matching
+  let doctorObjectId, patientObjectId;
+  try {
+    doctorObjectId = new mongoose.Types.ObjectId(doctorId);
+    patientObjectId = new mongoose.Types.ObjectId(patientId);
+    console.log("[addPatientToDoctor] Converted IDs - doctor:", doctorObjectId, "patient:", patientObjectId);
+  } catch (e) {
+    console.error("[addPatientToDoctor] Invalid ID format");
+    throw new Error("Invalid ID format");
+  }
   
   // Verify patient exists
   const patient = await User.findOne({ 
