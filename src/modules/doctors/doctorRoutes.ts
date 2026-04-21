@@ -39,6 +39,46 @@ router.get("/patients", async (req: Request, res: Response, next: NextFunction) 
   }
 });
 
+// POST /api/doctors/patients/search-by-email
+router.post("/patients/search-by-email", async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { email } = req.body;
+    if (!email?.trim()) {
+      return res.status(400).json({ success: false, error: { message: "Email is required" } });
+    }
+    
+    const patient = await DoctorService.searchPatientByEmail(email.trim(), req.user!.userId);
+    if (!patient) {
+      return res.status(404).json({ success: false, error: { message: "Patient not found" } });
+    }
+    
+    res.json({ success: true, data: patient });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /api/doctors/patients/add
+router.post("/patients/add", async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { patientId } = req.body;
+    if (!patientId) {
+      return res.status(400).json({ success: false, error: { message: "Patient ID is required" } });
+    }
+    
+    const result = await DoctorService.addPatientToDoctor(req.user!.userId, patientId);
+    res.json({ success: true, data: result });
+  } catch (err: any) {
+    if (err.message === "Patient not found") {
+      return res.status(404).json({ success: false, error: { message: err.message } });
+    }
+    if (err.message === "Patient already assigned") {
+      return res.status(409).json({ success: false, error: { message: err.message } });
+    }
+    next(err);
+  }
+});
+
 // ── Patient live telemetry snapshot ─────────────────────────────────
 // GET /api/doctors/patients/:patientId/live
 router.get(

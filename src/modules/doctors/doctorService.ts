@@ -420,3 +420,110 @@ export async function acknowledgeAlert(alertId: string, doctorId: string) {
     { new: true }
   ).lean();
 }
+
+// ------------------------------------------------------------------
+// Search and add patients by email
+// ------------------------------------------------------------------
+
+export async function searchPatientByEmail(email: string, doctorId: string) {
+  const { PatientProfile } = await import("../../models/PatientProfile");
+  
+  // Find patient by email
+  const patient = await User.findOne({ 
+    email: email.toLowerCase(), 
+    role: "patient", 
+    isActive: true 
+  })
+  .select("_id name email createdAt")
+  .lean();
+  
+  if (!patient) return null;
+  
+  // Check if already assigned to this doctor
+  const existingAssignment = await PatientProfile.findOne({
+    userId: patient._id,
+    assignedDoctorId: doctorId,
+  }).lean();
+  
+  // Get patient profile info
+  const profile = await PatientProfile.findOne({ userId: patient._id })
+    .select("dateOfBirth phone address medicalHistory emergencyContact")
+    .lean();
+  
+  // Get latest episode info
+  const latestEpisode = await TremorEpisode.findOne({ patientId: patient._id })
+    .sort({ startedAt: -1 })
+    .select("maxSeverity startedAt durationSec")
+    .lean();
+  
+  return {
+    ...patient,
+    profile: profile || null,
+    latestEpisode: latestEpisode || null,
+    alreadyAssigned: !!existingAssignment,
+  };
+}
+
+export async function addPatientToDoctor(doctorId: string, patientId: string) {
+  const { PatientProfile } = await import("../../models/PatientProfile");
+  
+  // Verify patient exists
+  const patient = await User.findOne({ 
+    _id: patientId, 
+    role: "patient", 
+    isActive: true 
+  }).lean();
+  
+  if (!patient) {
+    throw new Error("Patient not found");
+  }
+  
+  // Check if already assigned
+  const existingAssignment = await PatientProfile.findOne({
+    userId: patientId,
+    assignedDoctorId: doctorId,
+  }).lean();
+  
+  if (existingAssignment) {
+    throw new Error("Patient already assigned");
+  }
+  
+  // Create or update patient profile with doctor assignment
+  const patientProfile = await PatientProfile.findOneAndUpdate(
+    { userId: patientId },
+    { 
+      assignedDoctorId: doctorId,
+      assignedAt: new Date(),
+    },
+    { 
+      new: true, 
+      upsert: true 
+    }
+  ).lean();
+  
+  // Create notification for patient
+  const { Notification } = await import("../../models/Notification");
+  await Notification.create({
+    userId: patientId,
+    type: "assignment",
+    title: "New Doctor Assigned",
+    message: `A doctor has been assigned to your care. You can now view your medical information and communicate through the platform.`,
+    isRead: false,
+  });
+  
+  // Get doctor info for notification
+  const doctor = await User.findById(doctorId).select("name").lean();
+  
+  return {
+    patient: {
+      id: patient._id,
+      name: patient.name,
+      email: patient.email,
+    },
+    doctor: {
+      id: doctorId,
+      name: doctor?.name || "Unknown Doctor",
+    },
+    assignedAt: new Date(),
+  };
+}
