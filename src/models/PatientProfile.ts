@@ -3,6 +3,7 @@ import mongoose, { Schema, Document, Types } from "mongoose";
 export interface IPatientProfile extends Document {
   userId: Types.ObjectId;
   assignedDoctorId?: Types.ObjectId;
+  assignedAt?: Date;
   dateOfBirth?: Date;
   phone?: string;
   address?: string;
@@ -23,11 +24,14 @@ const patientProfileSchema = new Schema<IPatientProfile>(
       ref: "User",
       required: true,
       unique: true,
+    },
     assignedDoctorId: {
       type: Schema.Types.ObjectId,
       ref: "User",
       index: true,
     },
+    assignedAt: {
+      type: Date,
     },
     dateOfBirth: {
       type: Date,
