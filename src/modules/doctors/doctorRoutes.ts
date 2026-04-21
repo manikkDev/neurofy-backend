@@ -83,6 +83,22 @@ router.post("/patients/add", async (req: Request, res: Response, next: NextFunct
   }
 });
 
+// DELETE /api/doctors/patients/:patientId/remove
+router.delete("/patients/:patientId/remove", validateObjectId("patientId"), async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { patientId } = req.params;
+    console.log("[Route /patients/remove] Removing patient:", patientId, "from doctor:", req.user!.userId);
+    
+    const result = await DoctorService.removePatientFromDoctor(req.user!.userId, patientId);
+    res.json({ success: true, data: result });
+  } catch (err: any) {
+    if (err.message === "Patient not assigned to this doctor") {
+      return res.status(404).json({ success: false, error: { message: err.message } });
+    }
+    next(err);
+  }
+});
+
 // ── Patient live telemetry snapshot ─────────────────────────────────
 // GET /api/doctors/patients/:patientId/live
 router.get(

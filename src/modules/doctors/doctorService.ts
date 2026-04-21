@@ -580,3 +580,63 @@ export async function addPatientToDoctor(doctorId: string, patientId: string) {
     assignedAt: new Date(),
   };
 }
+
+export async function removePatientFromDoctor(doctorId: string, patientId: string) {
+  const { PatientProfile } = await import("../../models/PatientProfile");
+  const mongoose = await import("mongoose");
+  
+  console.log("[removePatientFromDoctor] Removing patient:", patientId, "from doctor:", doctorId);
+  
+  // Convert string IDs to ObjectIds
+  const doctorObjectId = new mongoose.Types.ObjectId(doctorId);
+  const patientObjectId = new mongoose.Types.ObjectId(patientId);
+  
+  // Check if patient is actually assigned to this doctor
+  const existingAssignment = await PatientProfile.findOne({
+    userId: patientObjectId,
+    assignedDoctorId: doctorObjectId,
+  }).lean();
+  
+  if (!existingAssignment) {
+    throw new Error("Patient not assigned to this doctor");
+  }
+  
+  // Remove the doctor assignment (set to null)
+  const updatedProfile = await PatientProfile.findOneAndUpdate(
+    { userId: patientObjectId },
+    { 
+      assignedDoctorId: undefined,
+      assignedAt: undefined,
+    },
+    { new: true }
+  ).lean();
+  
+  console.log("[removePatientFromDoctor] Removed assignment, updated profile:", updatedProfile);
+  
+  // Create notification for patient
+  const { Notification } = await import("../../models/Notification");
+  await Notification.create({
+    userId: patientObjectId,
+    type: "general",
+    title: "Doctor Removed",
+    message: `Your doctor has been removed from your care team. You will need to be assigned to a new doctor to continue receiving care.`,
+    isRead: false,
+  });
+  
+  // Get doctor info for response
+  const doctor = await User.findById(doctorObjectId).select("name").lean();
+  const patient = await User.findById(patientObjectId).select("name email").lean();
+  
+  return {
+    patient: {
+      id: patientId,
+      name: patient?.name || "Unknown",
+      email: patient?.email || "Unknown",
+    },
+    doctor: {
+      id: doctorId,
+      name: doctor?.name || "Unknown Doctor",
+    },
+    removedAt: new Date(),
+  };
+}
